@@ -1,0 +1,230 @@
+{
+  "name": "Daily AI news digest from RSS feeds",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Daily AI digest from RSS\nEvery morning at 7:00 it reads an RSS feed, keeps the last 24 hours, asks an AI model for a short summary and emails it to you.\n\n1. Put your feed URL in **Read feed**. Add more feeds by copying that node.\n2. Add your OpenAI API key to the chat model.\n3. Add an SMTP credential to **Email digest** and set the addresses.\n4. Change the time in **Every morning**. It uses your n8n time zone.\n\nFree template by [serverserv](https://serverserv.com/n8n-templates.html). MIT licence.",
+        "height": 360,
+        "width": 440,
+        "color": 7
+      },
+      "id": "f72ead11-f219-5960-bd64-93bed9d5d8a8",
+      "name": "Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -140,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "days",
+              "triggerAtHour": 7
+            }
+          ]
+        }
+      },
+      "id": "62102b63-aba5-5be1-aa40-5ed78fc29de8",
+      "name": "Every morning",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "url": "https://news.ycombinator.com/rss",
+        "options": {}
+      },
+      "id": "bffa0d71-4795-5efb-abc7-e5904326889c",
+      "name": "Read feed",
+      "type": "n8n-nodes-base.rssFeedRead",
+      "typeVersion": 1.1,
+      "position": [
+        220,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ DateTime.fromISO($json.isoDate || new Date($json.pubDate).toISOString()) }}",
+              "rightValue": "={{ $now.minus({ hours: 24 }) }}",
+              "operator": {
+                "type": "dateTime",
+                "operation": "after"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "8407f454-ac05-567e-8f03-24af90acf98e",
+      "name": "Last 24 hours",
+      "type": "n8n-nodes-base.filter",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const lines = $input.all().slice(0, 30).map((i, n) => `${n + 1}. ${i.json.title} (${i.json.link})\\n${(i.json.contentSnippet || '').slice(0, 300)}`);\nreturn [{ json: { count: lines.length, items: lines.join('\\n\\n') } }];"
+      },
+      "id": "da875a81-f33c-5f84-9de8-d8d30a5e45ac",
+      "name": "Join items",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Here are {{ $json.count }} items from the last 24 hours:\n\n{{ $json.items }}",
+        "options": {
+          "systemMessage": "Write a short morning briefing in plain text. Start with the 3 most important items, one or two sentences each, with the link. Then list the rest as one line each. No hype, no emoji."
+        }
+      },
+      "id": "2066e2f8-8f52-5ad1-86f3-82584415eaf8",
+      "name": "Summarise",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        880,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "id",
+          "value": "gpt-6.1-terra"
+        },
+        "options": {}
+      },
+      "id": "7a22a3c0-0e50-5070-8023-484e97ed5147",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        860,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "digest@example.com",
+        "toEmail": "you@example.com",
+        "subject": "=Your briefing for {{ $now.toFormat('d LLLL') }}",
+        "emailFormat": "text",
+        "text": "={{ $json.output }}",
+        "options": {}
+      },
+      "id": "1babb238-dac1-572c-9e18-15df637fb537",
+      "name": "Email digest",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1180,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Every morning": {
+      "main": [
+        [
+          {
+            "node": "Read feed",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Read feed": {
+      "main": [
+        [
+          {
+            "node": "Last 24 hours",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Last 24 hours": {
+      "main": [
+        [
+          {
+            "node": "Join items",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Join items": {
+      "main": [
+        [
+          {
+            "node": "Summarise",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Summarise": {
+      "main": [
+        [
+          {
+            "node": "Email digest",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Summarise",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

@@ -1,0 +1,280 @@
+{
+  "name": "Website form leads to Google Sheets and Slack",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Website form leads to Google Sheets and Slack\nPost your contact form to the **Lead form** webhook URL (JSON or form fields: name, email, phone, message).\n\n1. Connect Google Sheets and pick your sheet. Add a header row: name, email, phone, message, page, received_at.\n2. Connect Slack and pick a channel.\n3. Turn on **Header Auth** in the webhook, or add a hidden honeypot field, so bots cannot fill your sheet.\n\nFree template by [serverserv](https://serverserv.com/n8n-templates.html). MIT licence.",
+        "height": 340,
+        "width": 420,
+        "color": 7
+      },
+      "id": "9d7ddeae-692e-5dc1-b4ef-3b157de03d7b",
+      "name": "Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -120,
+        -260
+      ]
+    },
+    {
+      "parameters": {
+        "httpMethod": "POST",
+        "path": "lead-form",
+        "responseMode": "responseNode",
+        "options": {}
+      },
+      "id": "78e8434a-f8d0-5d4d-b730-aa5662fb8a7f",
+      "name": "Lead form",
+      "type": "n8n-nodes-base.webhook",
+      "typeVersion": 2,
+      "position": [
+        0,
+        120
+      ],
+      "webhookId": "557cbce1-45d0-5805-a2a4-253c6ddf9edc"
+    },
+    {
+      "parameters": {
+        "assignments": {
+          "assignments": [
+            {
+              "id": "a0",
+              "name": "name",
+              "value": "={{ ($json.body.name || '').toString().trim().slice(0, 200) }}",
+              "type": "string"
+            },
+            {
+              "id": "a1",
+              "name": "email",
+              "value": "={{ ($json.body.email || '').toString().trim().toLowerCase().slice(0, 200) }}",
+              "type": "string"
+            },
+            {
+              "id": "a2",
+              "name": "phone",
+              "value": "={{ ($json.body.phone || '').toString().trim().slice(0, 50) }}",
+              "type": "string"
+            },
+            {
+              "id": "a3",
+              "name": "message",
+              "value": "={{ ($json.body.message || '').toString().trim().slice(0, 3000) }}",
+              "type": "string"
+            },
+            {
+              "id": "a4",
+              "name": "page",
+              "value": "={{ ($json.body.page || $json.headers.referer || '').toString().slice(0, 300) }}",
+              "type": "string"
+            },
+            {
+              "id": "a5",
+              "name": "received_at",
+              "value": "={{ $now.toISO() }}",
+              "type": "string"
+            }
+          ]
+        },
+        "options": {}
+      },
+      "id": "c538aaeb-8a82-51ad-94e0-ecbd89feee9c",
+      "name": "Clean up lead",
+      "type": "n8n-nodes-base.set",
+      "typeVersion": 3.4,
+      "position": [
+        220,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.email }}",
+              "rightValue": "^[^\\s@]+@[^\\s@]+\\.[^\\s@]+$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0fe34d73-11eb-5cd3-adf5-a874d7f96bda",
+      "name": "Has a valid email?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        440,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "append",
+        "documentId": {
+          "__rl": true,
+          "mode": "url",
+          "value": ""
+        },
+        "sheetName": {
+          "__rl": true,
+          "mode": "name",
+          "value": "Sheet1"
+        },
+        "columns": {
+          "mappingMode": "autoMapInputData",
+          "value": {},
+          "matchingColumns": [],
+          "schema": [],
+          "attemptToConvertTypes": false,
+          "convertFieldsToString": false
+        },
+        "options": {}
+      },
+      "id": "b2f28368-3a93-5eef-b212-da1971d0066d",
+      "name": "Add row to sheet",
+      "type": "n8n-nodes-base.googleSheets",
+      "typeVersion": 4.5,
+      "position": [
+        680,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "select": "channel",
+        "channelId": {
+          "__rl": true,
+          "mode": "name",
+          "value": "#leads"
+        },
+        "text": "=New lead from the website\n*{{ $('Clean up lead').item.json.name || 'No name' }}* <{{ $('Clean up lead').item.json.email }}>\n{{ $('Clean up lead').item.json.phone }}\n> {{ $('Clean up lead').item.json.message }}",
+        "otherOptions": {}
+      },
+      "id": "8286f410-a124-59e7-b31d-7a8c95658b77",
+      "name": "Post to Slack",
+      "type": "n8n-nodes-base.slack",
+      "typeVersion": 2.3,
+      "position": [
+        900,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"ok\": true\n}",
+        "options": {}
+      },
+      "id": "25409aa3-a4dc-5749-807a-4edf8b010f1e",
+      "name": "Reply: thank you",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        1120,
+        20
+      ]
+    },
+    {
+      "parameters": {
+        "respondWith": "json",
+        "responseBody": "={\n  \"ok\": false,\n  \"error\": \"Please enter a valid email address.\"\n}",
+        "options": {
+          "responseCode": 400
+        }
+      },
+      "id": "21b2ab8a-012c-58ee-a343-30a3c8d7568b",
+      "name": "Reply: check the email",
+      "type": "n8n-nodes-base.respondToWebhook",
+      "typeVersion": 1.1,
+      "position": [
+        680,
+        240
+      ]
+    }
+  ],
+  "connections": {
+    "Lead form": {
+      "main": [
+        [
+          {
+            "node": "Clean up lead",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Clean up lead": {
+      "main": [
+        [
+          {
+            "node": "Has a valid email?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Has a valid email?": {
+      "main": [
+        [
+          {
+            "node": "Add row to sheet",
+            "type": "main",
+            "index": 0
+          }
+        ],
+        [
+          {
+            "node": "Reply: check the email",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add row to sheet": {
+      "main": [
+        [
+          {
+            "node": "Post to Slack",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Post to Slack": {
+      "main": [
+        [
+          {
+            "node": "Reply: thank you",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

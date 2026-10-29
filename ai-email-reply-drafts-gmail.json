@@ -1,0 +1,190 @@
+{
+  "name": "AI reply drafts for new Gmail messages",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## AI reply drafts for Gmail\nEvery new email in your inbox gets a suggested reply saved as a **draft** in the same thread. Nothing is sent automatically: you review and press send.\n\n1. Connect Gmail in the trigger and in **Save draft reply**.\n2. Add your OpenAI API key to the chat model (or swap in another model node).\n3. Edit the system message with your business details and tone.\n4. Senders containing no-reply, noreply or notifications are skipped.\n\nFree template by [serverserv](https://serverserv.com/n8n-templates.html). MIT licence.",
+        "height": 360,
+        "width": 440,
+        "color": 7
+      },
+      "id": "48ca1a78-8750-5c77-b60b-32a35bf1c16a",
+      "name": "Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -140,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "pollTimes": {
+          "item": [
+            {
+              "mode": "everyMinute"
+            }
+          ]
+        },
+        "simple": false,
+        "filters": {
+          "labelIds": [
+            "INBOX"
+          ],
+          "readStatus": "unread"
+        },
+        "options": {}
+      },
+      "id": "ffcbea4b-941b-5c3b-89be-bdda16d2649c",
+      "name": "New email",
+      "type": "n8n-nodes-base.gmailTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.from.value[0].address }}",
+              "rightValue": "^(?!.*(no-?reply|notifications?|mailer-daemon)).*$",
+              "operator": {
+                "type": "string",
+                "operation": "regex"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "e828bc71-a0e9-5ac8-8bf2-d804c98852b9",
+      "name": "Skip automated senders",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        220,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "=Write a reply to this email.\n\nFrom: {{ $json.from.text }}\nSubject: {{ $json.subject }}\n\n{{ ($json.text || '').slice(0, 6000) }}",
+        "options": {
+          "systemMessage": "You draft email replies for a small business. Reply in the sender's language, in a friendly and direct tone, in under 150 words. Answer only what you can from the email. If you need information you do not have (prices, dates, account details), write [CHECK] where it goes instead of guessing. Do not include a subject line. Sign off as: The team"
+        }
+      },
+      "id": "ed8bc37f-0999-57af-b56f-27fd61e48ae1",
+      "name": "Write reply",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        460,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "id",
+          "value": "gpt-6.1-terra"
+        },
+        "options": {}
+      },
+      "id": "25b0d9b9-dde3-53e3-b880-ab3592800613",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        440,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "resource": "draft",
+        "subject": "=Re: {{ $('New email').item.json.subject }}",
+        "emailType": "text",
+        "message": "={{ $json.output }}",
+        "options": {
+          "threadId": "={{ $('New email').item.json.threadId }}",
+          "sendTo": "={{ $('New email').item.json.from.value[0].address }}"
+        }
+      },
+      "id": "9c6f4f48-1cb8-5a04-b5c6-639a0549723f",
+      "name": "Save draft reply",
+      "type": "n8n-nodes-base.gmail",
+      "typeVersion": 2.1,
+      "position": [
+        780,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "New email": {
+      "main": [
+        [
+          {
+            "node": "Skip automated senders",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Skip automated senders": {
+      "main": [
+        [
+          {
+            "node": "Write reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Write reply": {
+      "main": [
+        [
+          {
+            "node": "Save draft reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "Write reply",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

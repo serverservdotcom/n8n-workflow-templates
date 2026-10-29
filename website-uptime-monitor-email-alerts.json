@@ -1,0 +1,198 @@
+{
+  "name": "Website uptime monitor with email alerts",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Website uptime monitor\nChecks your sites every 5 minutes and emails you when one is down or slow.\n\n1. Edit the list of URLs in **Sites to check**.\n2. Add an SMTP credential to **Email alert** and set the from and to addresses.\n3. A site counts as down if it does not answer with a 2xx or 3xx status within 10 seconds.\n\nYou get one email per failed check, so you will hear about it every 5 minutes until it is fixed.\n\nFree template by [serverserv](https://serverserv.com/n8n-templates.html). MIT licence.",
+        "height": 360,
+        "width": 440,
+        "color": 7
+      },
+      "id": "98d125ba-4273-57d1-a96a-ae6c9ce3df79",
+      "name": "Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -140,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "minutes",
+              "minutesInterval": 5
+            }
+          ]
+        }
+      },
+      "id": "27b1fcfc-ce8f-56a4-8233-1417c08d872b",
+      "name": "Every 5 minutes",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// One URL per line. Use full URLs with https://\nconst sites = [\n  'https://example.com',\n  'https://example.com/contact',\n];\n\nreturn sites.map(url => ({ json: { url } }));"
+      },
+      "id": "3fefde60-32f0-5fde-bdaf-784f3f3a0be9",
+      "name": "Sites to check",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.url }}",
+        "options": {
+          "redirect": {
+            "redirect": {
+              "followRedirects": true,
+              "maxRedirects": 5
+            }
+          },
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true,
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 10000
+        }
+      },
+      "id": "c32dc236-11d8-5eac-ae8e-115f686a6a49",
+      "name": "Check site",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        120
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ Number($json.statusCode) || 0 }}",
+              "rightValue": 400,
+              "operator": {
+                "type": "number",
+                "operation": "gte"
+              }
+            },
+            {
+              "id": "c2",
+              "leftValue": "={{ Number($json.statusCode) || 0 }}",
+              "rightValue": 200,
+              "operator": {
+                "type": "number",
+                "operation": "lt"
+              }
+            }
+          ],
+          "combinator": "or"
+        },
+        "options": {}
+      },
+      "id": "089d4c90-ee81-5fdc-9346-59710e47ae78",
+      "name": "Is it down?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        660,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "monitor@example.com",
+        "toEmail": "you@example.com",
+        "subject": "=DOWN: {{ $('Sites to check').item.json.url }}",
+        "emailFormat": "text",
+        "text": "={{ $('Sites to check').item.json.url }} did not respond properly at {{ $now.toFormat('yyyy-LL-dd HH:mm') }}.\n\nStatus: {{ $json.statusCode || 'no response' }}\nError: {{ $json.error ? ($json.error.message || JSON.stringify($json.error)) : 'none' }}",
+        "options": {}
+      },
+      "id": "a5ba398d-d41e-5684-be36-c0e4c67d5115",
+      "name": "Email alert",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        900,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Every 5 minutes": {
+      "main": [
+        [
+          {
+            "node": "Sites to check",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Sites to check": {
+      "main": [
+        [
+          {
+            "node": "Check site",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Check site": {
+      "main": [
+        [
+          {
+            "node": "Is it down?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Is it down?": {
+      "main": [
+        [
+          {
+            "node": "Email alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

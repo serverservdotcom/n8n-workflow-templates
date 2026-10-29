@@ -1,0 +1,203 @@
+{
+  "name": "Private Telegram AI assistant with memory",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Private Telegram AI assistant\nA Telegram bot that answers with an AI model and remembers the last few messages of each chat.\n\n1. Create a bot with @BotFather and add its token as a Telegram credential.\n2. Put your own Telegram user ID in **Only allowed users** so strangers cannot run up your AI bill. Message @userinfobot to find it.\n3. Add your OpenAI API key to the chat model.\n4. Activate the workflow. Your n8n must be reachable over HTTPS for Telegram to deliver messages.\n\nFree template by [serverserv](https://serverserv.com/n8n-templates.html). MIT licence.",
+        "height": 380,
+        "width": 460,
+        "color": 7
+      },
+      "id": "3f7cba0c-8c61-5af1-ac76-45ff13d5b2cb",
+      "name": "Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "updates": [
+          "message"
+        ],
+        "additionalFields": {}
+      },
+      "id": "4c94f427-cc6a-5b2b-a750-540097852dfe",
+      "name": "Telegram message",
+      "type": "n8n-nodes-base.telegramTrigger",
+      "typeVersion": 1.1,
+      "position": [
+        0,
+        120
+      ],
+      "webhookId": "8a51954b-404a-5ddb-87a5-8be546407ff7"
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ String($json.message.from.id) }}",
+              "rightValue": "123456789",
+              "operator": {
+                "type": "string",
+                "operation": "equals"
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "513b0a59-7a7d-556c-916e-8e3787e7047d",
+      "name": "Only allowed users",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        220,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "promptType": "define",
+        "text": "={{ $json.message.text || 'The user sent a message with no text.' }}",
+        "options": {
+          "systemMessage": "You are a helpful personal assistant on Telegram. Keep answers short and clear, use plain text, and say so when you are not sure."
+        }
+      },
+      "id": "6c725e04-d949-5153-a7b3-83ddf10bd11d",
+      "name": "AI Agent",
+      "type": "@n8n/n8n-nodes-langchain.agent",
+      "typeVersion": 1.7,
+      "position": [
+        460,
+        100
+      ]
+    },
+    {
+      "parameters": {
+        "model": {
+          "__rl": true,
+          "mode": "id",
+          "value": "gpt-6.1-terra"
+        },
+        "options": {}
+      },
+      "id": "0bce7df8-f1e4-5e51-bb58-931c7c70b0ff",
+      "name": "OpenAI Chat Model",
+      "type": "@n8n/n8n-nodes-langchain.lmChatOpenAi",
+      "typeVersion": 1.2,
+      "position": [
+        400,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "sessionIdType": "customKey",
+        "sessionKey": "={{ 'tg-' + $('Telegram message').item.json.message.chat.id }}",
+        "contextWindowLength": 10
+      },
+      "id": "f68ac6bc-8100-5cb0-9b9a-122d73566270",
+      "name": "Chat memory",
+      "type": "@n8n/n8n-nodes-langchain.memoryBufferWindow",
+      "typeVersion": 1.3,
+      "position": [
+        560,
+        320
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "={{ $('Telegram message').item.json.message.chat.id }}",
+        "text": "={{ $json.output }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "54cd7b5c-d38a-58cc-aa97-68532d56ed1c",
+      "name": "Send reply",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        800,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Telegram message": {
+      "main": [
+        [
+          {
+            "node": "Only allowed users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Only allowed users": {
+      "main": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "AI Agent": {
+      "main": [
+        [
+          {
+            "node": "Send reply",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "OpenAI Chat Model": {
+      "ai_languageModel": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_languageModel",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat memory": {
+      "ai_memory": [
+        [
+          {
+            "node": "AI Agent",
+            "type": "ai_memory",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}

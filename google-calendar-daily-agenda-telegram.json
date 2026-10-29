@@ -1,0 +1,141 @@
+{
+  "name": "Today's Google Calendar agenda on Telegram every morning",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Daily agenda on Telegram\nEvery weekday at 7:30 it sends today's Google Calendar events to you on Telegram.\n\n1. Connect Google Calendar and pick your calendar.\n2. Add your Telegram bot credential and your chat ID in **Send agenda**.\n3. Change the time or days in **Weekday mornings**. It uses your n8n time zone.\n\nFree template by [serverserv](https://serverserv.com/n8n-templates.html). MIT licence.",
+        "height": 320,
+        "width": 440,
+        "color": 7
+      },
+      "id": "9c4fcb2a-38f3-5a45-a516-14af3d5f4da4",
+      "name": "Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -140,
+        -300
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "cronExpression",
+              "expression": "30 7 * * 1-5"
+            }
+          ]
+        }
+      },
+      "id": "4b9e5620-1bae-5a18-aab7-058de6b540b2",
+      "name": "Weekday mornings",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "operation": "getAll",
+        "calendar": {
+          "__rl": true,
+          "mode": "list",
+          "value": "primary",
+          "cachedResultName": "Primary"
+        },
+        "returnAll": true,
+        "timeMin": "={{ $now.startOf('day') }}",
+        "timeMax": "={{ $now.endOf('day') }}",
+        "options": {
+          "singleEvents": true,
+          "orderBy": "startTime"
+        }
+      },
+      "id": "b72b80bc-9bef-5353-835f-7f3e218b9d1f",
+      "name": "Today's events",
+      "type": "n8n-nodes-base.googleCalendar",
+      "typeVersion": 1.3,
+      "position": [
+        220,
+        120
+      ],
+      "alwaysOutputData": true
+    },
+    {
+      "parameters": {
+        "jsCode": "const events = $input.all().map(i => i.json).filter(e => e && e.start);\nif (!events.length) return [{ json: { text: 'No events today. Enjoy the free time.' } }];\nconst fmt = s => s.dateTime ? DateTime.fromISO(s.dateTime).toFormat('HH:mm') : 'All day';\nconst lines = events.map(e => `${fmt(e.start)}  ${e.summary || '(no title)'}${e.location ? ' @ ' + e.location : ''}`);\nreturn [{ json: { text: `Today, ${$now.toFormat('cccc d LLLL')}:\\n\\n` + lines.join('\\n') } }];"
+      },
+      "id": "7fd4957c-3d8c-58d3-b228-91893703c1e5",
+      "name": "Format agenda",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        440,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "chatId": "123456789",
+        "text": "={{ $json.text }}",
+        "additionalFields": {
+          "appendAttribution": false
+        }
+      },
+      "id": "e535de01-3b80-55b1-bf07-ac636043fd42",
+      "name": "Send agenda",
+      "type": "n8n-nodes-base.telegram",
+      "typeVersion": 1.2,
+      "position": [
+        660,
+        120
+      ]
+    }
+  ],
+  "connections": {
+    "Weekday mornings": {
+      "main": [
+        [
+          {
+            "node": "Today's events",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Today's events": {
+      "main": [
+        [
+          {
+            "node": "Format agenda",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Format agenda": {
+      "main": [
+        [
+          {
+            "node": "Send agenda",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
