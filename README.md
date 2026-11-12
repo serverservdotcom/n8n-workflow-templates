@@ -1,8 +1,8 @@
 # n8n workflow templates
 
-Ten free, tested [n8n](https://n8n.io) workflows you can import in a minute. Each one has a setup note on the canvas, uses only standard n8n nodes and contains no credentials.
+Thirteen free, tested [n8n](https://n8n.io) workflows you can import in a minute. Each one has a setup note on the canvas, uses only standard n8n nodes and contains no credentials.
 
-Built and imported on n8n 2.35. Templates with their own logic (filters, code and branches) were also test-run with sample data.
+Built and imported on n8n 2.35; the domain expiry, broken link and IndexNow templates were added and tested on n8n 2.46. Templates with their own logic (filters, code and branches) were also test-run with sample data.
 
 | Template | What it does | Apps | File | Guide |
 | --- | --- | --- | --- | --- |
@@ -16,6 +16,9 @@ Built and imported on n8n 2.35. Templates with their own logic (filters, code an
 | Daily AI digest from RSS | Emails you a short AI briefing of the last 24 hours from an RSS feed. | RSS, OpenAI, SMTP | [JSON](rss-news-ai-daily-digest.json) | [Setup guide](https://serverserv.com/n8n-template-rss-news-ai-daily-digest.html) |
 | Daily calendar agenda on Telegram | Sends today's Google Calendar events to Telegram on weekday mornings. | Google Calendar, Telegram | [JSON](google-calendar-daily-agenda-telegram.json) | [Setup guide](https://serverserv.com/n8n-template-google-calendar-daily-agenda-telegram.html) |
 | Stripe payments to Google Sheets | Logs every successful Stripe charge to a sheet and announces it in Slack. | Stripe, Google Sheets, Slack | [JSON](stripe-payments-to-google-sheets.json) | [Setup guide](https://serverserv.com/n8n-template-stripe-payments-to-google-sheets.html) |
+| Domain expiry reminder | Checks your domains every morning through RDAP and emails you when one expires within 30 days. | RDAP, SMTP | [JSON](domain-expiry-reminder-email.json) | [Setup guide](https://serverserv.com/n8n-template-domain-expiry-reminder-email.html) |
+| Broken link checker | Every Monday, checks the same-site links on a page and emails you any that are broken. | HTTP Request, SMTP | [JSON](broken-link-checker-email-report.json) | [Setup guide](https://serverserv.com/n8n-template-broken-link-checker-email-report.html) |
+| Submit new pages to IndexNow | Reads your sitemap every hour and submits new URLs to IndexNow for Bing and other search engines. | HTTP Request, IndexNow | [JSON](sitemap-new-pages-to-indexnow.json) | [Setup guide](https://serverserv.com/n8n-template-sitemap-new-pages-to-indexnow.html) |
 
 ## How to import
 
