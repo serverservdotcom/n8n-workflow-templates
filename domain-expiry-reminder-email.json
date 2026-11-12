@@ -1,0 +1,213 @@
+{
+  "name": "Domain expiry reminder with email alerts",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Domain expiry reminder\nChecks your domains once a day and emails you when one expires within 30 days.\n\n1. Edit the list in **Domains to watch**.\n2. Change `warnDays` there if you want more or less notice.\n3. Add an SMTP credential to **Email alert** and set the from and to addresses.\n\nExpiry dates come from RDAP, the public registration data service. A few country-code domains do not publish an expiry date; those are reported as unknown.\n\nFree template by [serverserv](https://serverserv.com/n8n-templates.html). MIT licence.",
+        "height": 380,
+        "width": 460,
+        "color": 7
+      },
+      "id": "1b1c512f-2bcc-5f85-890d-e1ee86cc4322",
+      "name": "Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "triggerAtHour": 9
+            }
+          ]
+        }
+      },
+      "id": "461fcad1-4397-5bfc-98b0-da56ea6fda7f",
+      "name": "Every day at 9",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "// One domain per line, without https:// or www.\nconst domains = [\n  'example.com',\n  'example.org',\n];\nconst warnDays = 30;\n\nreturn domains.map(domain => ({ json: { domain: domain.trim().toLowerCase(), warnDays } }));"
+      },
+      "id": "dc275bbf-4ec6-5a85-8b7e-79b91afc0626",
+      "name": "Domains to watch",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "url": "=https://rdap.org/domain/{{ $json.domain }}",
+        "options": {
+          "redirect": {
+            "redirect": {
+              "followRedirects": true,
+              "maxRedirects": 5
+            }
+          },
+          "response": {
+            "response": {
+              "neverError": true,
+              "responseFormat": "json"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "950567a2-845c-5332-9f83-a85fe2874da9",
+      "name": "Look up RDAP",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        120
+      ],
+      "onError": "continueRegularOutput"
+    },
+    {
+      "parameters": {
+        "mode": "runOnceForEachItem",
+        "jsCode": "const src = $('Domains to watch').item.json;\nconst events = Array.isArray($json.events) ? $json.events : [];\nconst exp = events.find(e => e.eventAction === 'expiration');\nif (!exp || !exp.eventDate) {\n  return { json: { domain: src.domain, expires: 'unknown', daysLeft: -1, warn: true, note: 'No expiry date found in RDAP. Check this domain at your registrar.' } };\n}\nconst daysLeft = Math.floor((new Date(exp.eventDate).getTime() - Date.now()) / 86400000);\nreturn { json: { domain: src.domain, expires: exp.eventDate.slice(0, 10), daysLeft, warn: daysLeft <= src.warnDays, note: '' } };"
+      },
+      "id": "5c8e0dc2-16f9-598a-85e5-ab007af74310",
+      "name": "Days left",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "conditions": {
+          "options": {
+            "caseSensitive": true,
+            "leftValue": "",
+            "typeValidation": "strict",
+            "version": 2
+          },
+          "conditions": [
+            {
+              "id": "c1",
+              "leftValue": "={{ $json.warn }}",
+              "rightValue": "",
+              "operator": {
+                "type": "boolean",
+                "operation": "true",
+                "singleValue": true
+              }
+            }
+          ],
+          "combinator": "and"
+        },
+        "options": {}
+      },
+      "id": "0c2bb199-2e07-532e-88e7-adee018f5796",
+      "name": "Expiring soon?",
+      "type": "n8n-nodes-base.if",
+      "typeVersion": 2.2,
+      "position": [
+        880,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "fromEmail": "alerts@example.com",
+        "toEmail": "you@example.com",
+        "subject": "=Domain expiring: {{ $json.domain }}",
+        "emailFormat": "text",
+        "text": "={{ $json.domain }} expires on {{ $json.expires }} ({{ $json.daysLeft >= 0 ? $json.daysLeft + ' days left' : 'expiry date unknown' }}).\n{{ $json.note }}\nRenew it at your registrar before it lapses.",
+        "options": {}
+      },
+      "id": "14a526d4-69e1-5e16-9577-e2674873cfb5",
+      "name": "Email alert",
+      "type": "n8n-nodes-base.emailSend",
+      "typeVersion": 2.1,
+      "position": [
+        1120,
+        100
+      ]
+    }
+  ],
+  "connections": {
+    "Every day at 9": {
+      "main": [
+        [
+          {
+            "node": "Domains to watch",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Domains to watch": {
+      "main": [
+        [
+          {
+            "node": "Look up RDAP",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Look up RDAP": {
+      "main": [
+        [
+          {
+            "node": "Days left",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Days left": {
+      "main": [
+        [
+          {
+            "node": "Expiring soon?",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Expiring soon?": {
+      "main": [
+        [
+          {
+            "node": "Email alert",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
