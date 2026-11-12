@@ -1,0 +1,166 @@
+{
+  "name": "Submit new sitemap URLs to IndexNow",
+  "nodes": [
+    {
+      "parameters": {
+        "content": "## Submit new pages to IndexNow\nEvery hour it reads your sitemap, finds URLs it has not seen before and submits them to IndexNow, which shares them with Bing, Yandex, Seznam and other search engines.\n\n1. In **Settings**, set your `sitemapUrl` and your IndexNow `key`.\n2. Host the key file at https://yourdomain/<key>.txt containing only the key.\n3. Activate the workflow. The first run only remembers your current URLs; later runs submit new ones.\n\nRemembered URLs are kept in the workflow's static data, which n8n saves on active (production) runs only, not on manual test runs. No credentials needed.\n\nFree template by [serverserv](https://serverserv.com/n8n-templates.html). MIT licence.",
+        "height": 420,
+        "width": 460,
+        "color": 7
+      },
+      "id": "66019873-70dc-5211-bd1a-723b495c3040",
+      "name": "Setup",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        -160,
+        -320
+      ]
+    },
+    {
+      "parameters": {
+        "rule": {
+          "interval": [
+            {
+              "field": "hours"
+            }
+          ]
+        }
+      },
+      "id": "65927459-2ded-5aeb-ad7f-82da1d4300ed",
+      "name": "Every hour",
+      "type": "n8n-nodes-base.scheduleTrigger",
+      "typeVersion": 1.2,
+      "position": [
+        0,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const sitemapUrl = 'https://example.com/sitemap.xml';\nconst key = 'your-indexnow-key';\nreturn [{ json: { sitemapUrl, key, host: sitemapUrl.replace(/^https?:\\/\\//i, '').split('/')[0] } }];"
+      },
+      "id": "c4682abc-cbbe-5a11-991d-37b945a9bb2a",
+      "name": "Settings",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        220,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "url": "={{ $json.sitemapUrl }}",
+        "options": {
+          "response": {
+            "response": {
+              "responseFormat": "text"
+            }
+          },
+          "timeout": 15000
+        }
+      },
+      "id": "5427500a-d8c1-520d-b1a2-9e5a0c784957",
+      "name": "Get sitemap",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        440,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "jsCode": "const cfg = $('Settings').first().json;\nconst xml = String($input.first().json.data || '');\nconst urls = [...xml.matchAll(/<loc>\\s*([^<\\s]+)\\s*<\\/loc>/gi)].map(m => m[1]);\nconst store = $getWorkflowStaticData('global');\nconst firstRun = !Array.isArray(store.seen);\nconst seen = new Set(firstRun ? [] : store.seen);\nconst fresh = urls.filter(u => !seen.has(u));\nstore.seen = urls;\nif (firstRun || fresh.length === 0) return [];\nreturn [{ json: { host: cfg.host, key: cfg.key, urlList: fresh.slice(0, 10000) } }];"
+      },
+      "id": "c023c1e0-8db5-5bba-b9d9-6eeb24361482",
+      "name": "Find new URLs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        660,
+        120
+      ]
+    },
+    {
+      "parameters": {
+        "method": "POST",
+        "url": "https://api.indexnow.org/indexnow",
+        "sendBody": true,
+        "specifyBody": "json",
+        "jsonBody": "={{ JSON.stringify({ host: $json.host, key: $json.key, urlList: $json.urlList }) }}",
+        "options": {
+          "response": {
+            "response": {
+              "fullResponse": true,
+              "neverError": true
+            }
+          }
+        }
+      },
+      "id": "96128a3b-4a9e-52d0-b844-d863354d3213",
+      "name": "Submit to IndexNow",
+      "type": "n8n-nodes-base.httpRequest",
+      "typeVersion": 4.2,
+      "position": [
+        880,
+        120
+      ]
+    }
+  ],
+  "connections": {
+    "Every hour": {
+      "main": [
+        [
+          {
+            "node": "Settings",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Settings": {
+      "main": [
+        [
+          {
+            "node": "Get sitemap",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Get sitemap": {
+      "main": [
+        [
+          {
+            "node": "Find new URLs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Find new URLs": {
+      "main": [
+        [
+          {
+            "node": "Submit to IndexNow",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "pinData": {},
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "meta": {
+    "templateCredsSetupCompleted": false
+  },
+  "tags": []
+}
